@@ -1,6 +1,7 @@
 # _*_ coding: utf-8 _*_
 import sys
 import time
+import random
 from pymongo import MongoClient
 from nltk.tokenize import TweetTokenizer
 
@@ -142,6 +143,71 @@ class TweetsQuery:
 
 		print "Finishing collecting tweets!"
 		print str(len(self._text)) + ' tweets have been queried.'
+
+
+
+	# Get all the ids of the collection and then randomly to get tweets
+	def getRandomTweets(self):
+
+		if self._queryCount <= 0:
+			print "ERROR: Randomly quering tweets must specify the query count!"
+			return
+
+		# get all items' id
+		print "Begin to collect all ids of tweets..."
+		id_list = []
+		index = 0
+		pbar = ProgressBar(widgets=[Percentage(), Bar()], maxval = self._collection.count()).start()
+		for tweet in self._collection.find(self._querystr):
+			id_list.append(tweet['_id'])
+			pbar.update(index+1)
+			index += 1
+		pbar.finish()
+		print "Finishing collecting " + str(len(id_list)) + " ids of tweets."
+
+		print "Sampling the ids and get randomly selected tweets..."
+		randomNums = random.sample(xrange(len(id_list)), self._queryCount)
+		index = 0
+		self._text = []
+		pbar = ProgressBar(widgets=[Percentage(), Bar()], maxval = len(randomNums)).start()
+		if len(self._tagList) <= 0:
+			for i in randomNums:
+				try:
+					query = {'_id' : id_list[i]}
+					tweet = self._collection.find(query)
+					text = tweet[0]['text']
+					text = text.encode('utf-8')
+					self._text.append(text)
+					pbar.update(index+1)
+					index += 1
+				except Exception, e:
+					print e
+				else:
+					pass
+				pbar.finish()
+		else:
+			tknzr = TweetTokenizer()
+			for i in randomNums:
+				try:
+					query = {'_id' : id_list[i]}
+					tweet = self._collection.find(query)
+					text = tweet[0]['text']
+					text = text.encode('utf-8')
+					tokens = set(tknzr.tokenize(text))
+					if len(tokens & set(self._tagList)) > 0: # If the tweet contains any tag that listed in the list
+						self._text.append(str(text))
+						pbar.update(index+1)
+						index += 1
+				except Exception, e:
+					continue
+				else:
+					pass
+				pbar.finish()
+			
+		print "Finishing collecting tweets!"
+		print str(len(self._text)) + ' tweets have been randomly queried.'
+
+
 
 	def writeTweets2file(self, filePath):
 		if len(filePath) <= 0:
